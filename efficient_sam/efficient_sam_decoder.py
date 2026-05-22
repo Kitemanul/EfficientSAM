@@ -186,20 +186,18 @@ class MaskDecoder(nn.Module):
 
         self.final_output_upscaling_layers = nn.ModuleList([])
         for idx, layer_dims in enumerate(upscaling_layer_dims):
-            self.final_output_upscaling_layers.append(
-                nn.Sequential(
-                    nn.ConvTranspose2d(
-                        output_dim_after_upscaling,
-                        layer_dims,
-                        kernel_size=2,
-                        stride=2,
-                    ),
-                    nn.GroupNorm(1, layer_dims)
-                    if idx < len(upscaling_layer_dims) - 1
-                    else nn.Identity(),
-                    activation(),
-                )
-            )
+            layers: List[nn.Module] = [
+                nn.ConvTranspose2d(
+                    output_dim_after_upscaling,
+                    layer_dims,
+                    kernel_size=2,
+                    stride=2,
+                ),
+            ]
+            if idx < len(upscaling_layer_dims) - 1:
+                layers.append(nn.GroupNorm(1, layer_dims))
+            layers.append(activation())
+            self.final_output_upscaling_layers.append(nn.Sequential(*layers))
             output_dim_after_upscaling = layer_dims
 
         self.output_hypernetworks_mlps = nn.ModuleList(
