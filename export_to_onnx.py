@@ -1,5 +1,7 @@
 #ONNX export code is from [labelme annotation tool](https://github.com/labelmeai/efficient-sam). Huge thanks to Kentaro Wada.
 
+import onnx
+import onnx.shape_inference
 import onnxruntime
 import torch
 
@@ -24,13 +26,18 @@ def export_onnx(onnx_model, output, dummy_inputs, output_names):
             output_names=output_names,
         )
 
+    # Propagate static shape information through all graph nodes
+    model_proto = onnx.load(output)
+    model_proto = onnx.shape_inference.infer_shapes(model_proto)
+    onnx.save(model_proto, output)
+
     inference_session = onnxruntime.InferenceSession(output)
-    output = inference_session.run(
+    infer_output = inference_session.run(
         output_names=output_names,
         input_feed={k: v.numpy() for k, v in dummy_inputs.items()},
     )
     print(output_names)
-    print([output_i.shape for output_i in output])
+    print([o.shape for o in infer_output])
 
 
 def export_onnx_esam(model, output):
