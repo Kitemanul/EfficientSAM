@@ -165,49 +165,23 @@ class EfficientSam(nn.Module):
         )
 
     @torch.jit.export
-    def get_image_embeddings(self, batched_images) -> torch.Tensor:
-        """
-        Predicts masks end-to-end from provided images and prompts.
-        If prompts are not known in advance, using SamPredictor is
-        recommended over calling the model directly.
-
-        Arguments:
-          batched_images: A tensor of shape [B, 3, H, W]
-        Returns:
-          List of image embeddings each of of shape [B, C(i), H(i), W(i)].
-          The last embedding corresponds to the final layer.
-        """
-        batched_images = self.preprocess(batched_images)
-        return self.image_encoder(batched_images)
+    def get_image_embeddings(self, images) -> torch.Tensor:
+        images = self.preprocess(images)
+        return self.image_encoder(images)
 
     def forward(
         self,
-        batched_images: torch.Tensor,
-        batched_points: torch.Tensor,
-        batched_point_labels: torch.Tensor,
+        images: torch.Tensor,
+        points: torch.Tensor,
+        point_labels: torch.Tensor,
         scale_to_original_image_size: bool = True,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        Predicts masks end-to-end from provided images and prompts.
-        If prompts are not known in advance, using SamPredictor is
-        recommended over calling the model directly.
-
-        Arguments:
-          batched_images: A tensor of shape [B, 3, H, W]
-          batched_points: A tensor of shape [B, num_queries, max_num_pts, 2]
-          batched_point_labels: A tensor of shape [B, num_queries, max_num_pts]
-
-        Returns:
-          A list tuples of two tensors where the ith element is by considering the first i+1 points.
-            low_res_mask: A tensor of shape [B, 256, 256] of predicted masks
-            iou_predictions: A tensor of shape [B, max_num_queries] of estimated IOU scores
-        """
-        batch_size, _, input_h, input_w = batched_images.shape
-        image_embeddings = self.get_image_embeddings(batched_images)
+        batch_size, _, input_h, input_w = images.shape
+        image_embeddings = self.get_image_embeddings(images)
         return self.predict_masks(
             image_embeddings,
-            batched_points,
-            batched_point_labels,
+            points,
+            point_labels,
             multimask_output=True,
             input_h=input_h,
             input_w=input_w,
