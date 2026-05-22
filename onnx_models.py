@@ -31,16 +31,16 @@ class OnnxEfficientSam(torch.nn.Module):
 
     def forward(
         self,
-        batched_images: torch.Tensor,
-        batched_points: torch.Tensor,
-        batched_point_labels: torch.Tensor,
+        images: torch.Tensor,
+        point_coords: torch.Tensor,
+        point_labels: torch.Tensor,
     ):
-        batch_size, _, input_h, input_w = batched_images.shape
-        image_embeddings = self.get_image_embeddings(batched_images)
+        batch_size, _, input_h, input_w = images.shape
+        image_embeddings = self.get_image_embeddings(images)
         return self.predict_masks(
             image_embeddings,
-            batched_points,
-            batched_point_labels,
+            point_coords,
+            point_labels,
             multimask_output=True,
             input_h=input_h,
             input_w=input_w,
@@ -62,25 +62,25 @@ class OnnxEfficientSam(torch.nn.Module):
     def predict_masks(
         self,
         image_embeddings: torch.Tensor,
-        batched_points: torch.Tensor,
-        batched_point_labels: torch.Tensor,
+        point_coords: torch.Tensor,
+        point_labels: torch.Tensor,
         multimask_output: bool,
         input_h: int,
         input_w: int,
         output_h: int = -1,
         output_w: int = -1,
     ):
-        batch_size, max_num_queries, num_pts, _ = batched_points.shape
-        num_pts = batched_points.shape[2]
+        batch_size, max_num_queries, num_pts, _ = point_coords.shape
+        num_pts = point_coords.shape[2]
         rescaled_batched_points = self.get_rescaled_pts(
-            batched_points, input_h, input_w
+            point_coords, input_h, input_w
         )
 
         if num_pts > self.decoder_max_num_input_points:
             rescaled_batched_points = rescaled_batched_points[
                 :, :, : self.decoder_max_num_input_points, :
             ]
-            batched_point_labels = batched_point_labels[
+            point_labels = point_labels[
                 :, :, : self.decoder_max_num_input_points
             ]
         elif num_pts < self.decoder_max_num_input_points:
@@ -89,8 +89,8 @@ class OnnxEfficientSam(torch.nn.Module):
                 (0, 0, 0, self.decoder_max_num_input_points - num_pts),
                 value=-1.0,
             )
-            batched_point_labels = F.pad(
-                batched_point_labels,
+            point_labels = F.pad(
+                point_labels,
                 (0, self.decoder_max_num_input_points - num_pts),
                 value=-1.0,
             )
@@ -99,7 +99,7 @@ class OnnxEfficientSam(torch.nn.Module):
             rescaled_batched_points.reshape(
                 batch_size * max_num_queries, self.decoder_max_num_input_points, 2
             ),
-            batched_point_labels.reshape(
+            point_labels.reshape(
                 batch_size * max_num_queries, self.decoder_max_num_input_points
             ),
         )
@@ -146,18 +146,18 @@ class OnnxEfficientSam(torch.nn.Module):
 
 
 class OnnxEfficientSamEncoder(OnnxEfficientSam):
-    def forward(self, batched_images: torch.Tensor):
-        return self.model.get_image_embeddings(batched_images)
+    def forward(self, images: torch.Tensor):
+        return self.model.get_image_embeddings(images)
 
 
 class OnnxEfficientSamDecoder(OnnxEfficientSam):
     def forward(
-        self, image_embeddings, batched_points, batched_point_labels, orig_im_size
+        self, image_embeddings, point_coords, point_labels, orig_im_size
     ):
         return self.predict_masks(
             image_embeddings=image_embeddings,
-            batched_points=batched_points,
-            batched_point_labels=batched_point_labels,
+            point_coords=point_coords,
+            point_labels=point_labels,
             multimask_output=True,
             input_h=orig_im_size[0],
             input_w=orig_im_size[1],
