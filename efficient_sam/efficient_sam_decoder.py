@@ -256,9 +256,9 @@ class MaskDecoder(nn.Module):
         ) = image_embeddings.shape
 
         # Tile the image embedding for all queries.
-        image_embeddings_tiled = torch.tile(
-            image_embeddings[:, None, :, :, :], [1, max_num_queries, 1, 1, 1]
-        ).view(
+        image_embeddings_tiled = image_embeddings[:, None, :, :, :].expand(
+            batch_size, max_num_queries, image_embed_dim_c, image_embed_dim_h, image_embed_dim_w
+        ).reshape(
             batch_size * max_num_queries,
             image_embed_dim_c,
             image_embed_dim_h,
