@@ -167,7 +167,7 @@ def get_abs_pos(
         new_abs_pos = F.interpolate(
             abs_pos.reshape(1, size, size, -1).permute(0, 3, 1, 2),
             size=(h, w),
-            mode="bicubic",
+            mode="bilinear",
             align_corners=False,
         )
         return new_abs_pos.permute(0, 2, 3, 1)

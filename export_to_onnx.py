@@ -36,11 +36,11 @@ def export_onnx(onnx_model, output, dummy_inputs, output_names):
 def export_onnx_esam(model, output):
     onnx_model = onnx_models.OnnxEfficientSam(model=model)
     dummy_inputs = {
-        "batched_images": torch.randn(1, 3, 1080, 1920, dtype=torch.float),
-        "batched_point_coords": torch.randint(
+        "images": torch.randn(1, 3, 1080, 1920, dtype=torch.float),
+        "point_coords": torch.randint(
             low=0, high=1080, size=(1, 1, 5, 2), dtype=torch.float
         ),
-        "batched_point_labels": torch.randint(
+        "point_labels": torch.randint(
             low=0, high=4, size=(1, 1, 5), dtype=torch.float
         ),
     }
@@ -56,7 +56,7 @@ def export_onnx_esam(model, output):
 def export_onnx_esam_encoder(model, output):
     onnx_model = onnx_models.OnnxEfficientSamEncoder(model=model)
     dummy_inputs = {
-        "batched_images": torch.randn(1, 3, 1080, 1920, dtype=torch.float),
+        "images": torch.randn(1, 3, 1080, 1920, dtype=torch.float),
     }
     output_names = ["image_embeddings"]
     export_onnx(
@@ -71,10 +71,10 @@ def export_onnx_esam_decoder(model, output):
     onnx_model = onnx_models.OnnxEfficientSamDecoder(model=model)
     dummy_inputs = {
         "image_embeddings": torch.randn(1, 256, 64, 64, dtype=torch.float),
-        "batched_point_coords": torch.randint(
+        "point_coords": torch.randint(
             low=0, high=1080, size=(1, 1, 5, 2), dtype=torch.float
         ),
-        "batched_point_labels": torch.randint(
+        "point_labels": torch.randint(
             low=0, high=4, size=(1, 1, 5), dtype=torch.float
         ),
         "orig_im_size": torch.tensor([1080, 1920], dtype=torch.long),
