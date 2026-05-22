@@ -275,5 +275,38 @@ def build_efficient_sam(encoder_patch_embed_dim, encoder_num_heads, checkpoint=N
     if checkpoint is not None:
         with open(checkpoint, "rb") as f:
             state_dict = torch.load(f, map_location="cpu")
-        sam.load_state_dict(state_dict["model"])
+        state_dict = state_dict["model"]
+        state_dict = _convert_convtranspose_weights(state_dict)
+        sam.load_state_dict(state_dict)
     return sam
+
+
+def _convert_convtranspose_weights(state_dict):
+    """Convert ConvTranspose2d(k=2,s=2) weights to Conv2d(1x1)+PixelShuffle(2) weights.
+
+    ConvTranspose2d weight shape: (C_in, C_out, 2, 2)
+    Equivalent Conv2d(1x1) weight shape: (C_out*4, C_in, 1, 1)
+
+    The mapping follows the PixelShuffle channel layout where output pixel (r*y+dy, r*x+dx)
+    comes from channel (dy*r + dx) of the Conv2d output.
+    For ConvTranspose2d with k=s=2, output[n, co, 2*h+kh, 2*w+kw] += input[n,ci,h,w] * weight[ci,co,kh,kw]
+    We need Conv2d output channel (kh*2 + kw) for (co) to carry weight[ci, co, kh, kw].
+    So the Conv2d weight[co*4 + kh*2 + kw, ci, 0, 0] = ct_weight[ci, co, kh, kw].
+    """
+    new_state_dict = {}
+    for key, val in state_dict.items():
+        # Match keys like mask_decoder.final_output_upscaling_layers.N.0.weight/bias
+        # Layer 0 in Sequential is now Conv2d (was ConvTranspose2d index 0).
+        if "final_output_upscaling_layers" in key and ".0.weight" in key:
+            # val: (C_in, C_out, 2, 2)
+            c_in, c_out, kh, kw = val.shape
+            # new weight: (C_out*4, C_in, 1, 1)
+            # index mapping: new[co*4 + kh*2 + kw, ci, 0, 0] = old[ci, co, kh, kw]
+            new_weight = val.permute(1, 2, 3, 0).reshape(c_out * kh * kw, c_in, 1, 1)
+            new_state_dict[key] = new_weight
+        elif "final_output_upscaling_layers" in key and ".0.bias" in key:
+            # val: (C_out,) -> repeat 4 times: (C_out*4,)
+            new_state_dict[key] = val.repeat_interleave(4)
+        else:
+            new_state_dict[key] = val
+    return new_state_dict

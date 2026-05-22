@@ -186,13 +186,11 @@ class MaskDecoder(nn.Module):
 
         self.final_output_upscaling_layers = nn.ModuleList([])
         for idx, layer_dims in enumerate(upscaling_layer_dims):
+            # Conv2d(1x1) + PixelShuffle(2) is equivalent to ConvTranspose2d(k=2,s=2)
+            # and avoids onnx.ConvTranspose which is unsupported in some MLIR backends.
             layers: List[nn.Module] = [
-                nn.ConvTranspose2d(
-                    output_dim_after_upscaling,
-                    layer_dims,
-                    kernel_size=2,
-                    stride=2,
-                ),
+                nn.Conv2d(output_dim_after_upscaling, layer_dims * 4, kernel_size=1),
+                nn.PixelShuffle(2),
             ]
             if idx < len(upscaling_layer_dims) - 1:
                 layers.append(nn.GroupNorm(1, layer_dims))
